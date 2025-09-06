@@ -3,13 +3,39 @@ import std::io::file;
 import std::core::string;
 import std::core::mem;
 
+/* Colors */
+const Color GRAY     = (Color){130, 130, 130, 255};
+const Color YELLOW   = (Color){253, 249,   0, 255};
+const Color GOLD     = (Color){255, 203,   0, 255};
+const Color BROWN    = (Color){127, 106,  79, 255};
+const Color WHITE    = (Color){255, 255, 255, 255};
+const Color BLACK    = (Color){  0,   0,   0, 255};
+const Color BLANK    = (Color){  0,   0,   0,   0};
+const Color SKYBLUE  = (Color){102, 191, 255, 255};
+
 /* Raylib */
+struct Rect {
+    float x;
+    float y;
+    float width;
+    float height;
+}
+
+struct Color {
+    char r;
+    char g;
+    char b;
+    char a;
+}
+
 extern fn void init_window(int width, int height, char *title) @extern("InitWindow");
 extern fn void set_target_fps(int fps) @extern("SetTargetFPS");
 extern fn int get_random_value(int min, int max) @extern("GetRandomValue");
-extern fn bool window_should_not_close() @extern("WindowShouldClose");
+extern fn bool window_should_close() @extern("WindowShouldClose");
 extern fn void begin_drawing() @extern("BeginDrawing");
 extern fn void end_drawing() @extern("EndDrawing");
+extern fn void clear_background(Color color) @extern("ClearBackground");
+extern fn void draw_rect(Rect rect, Color color) @extern("DrawRectangleRec");
 
 /* Constants */
 const int WINDOW_WIDTH = 1200;
@@ -19,6 +45,8 @@ const int MAP_WIDTH = 60;
 const int MAP_HEIGHT = 25;
 const int MAP_SIZE = MAP_HEIGHT * MAP_WIDTH;
 const int MAP_TOTAL_STAGES = 2;
+
+const int BLOCK_SIZE = 20;
 
 enum Direction {
     DIR_UP,
@@ -68,7 +96,6 @@ fn void? Map.load(Map* map, int stage_index) {
     File? f = file::open(filename, "r");
     ulong bytes_read = f.read(&map.grid)!;
     assert(bytes_read == MAP_SIZE);
-
     f.close()!;
 }
 
@@ -93,8 +120,8 @@ struct Enemy {
 }
 
 struct Player {
-    int pos_x;
-    int pos_y;
+    uint pos_x;
+    uint pos_y;
     Direction dir;
     uint lives;
     uint points;
@@ -132,16 +159,50 @@ fn void Game.init(Game* game) {
     game.map = map;
 }
 
+/* Draw functions */
+fn void Map.draw(Map* map) {
+    for (int y = 0; y < MAP_HEIGHT; y++) {
+        for (int x = 0; x < MAP_WIDTH; x++) {
+            int index = y * MAP_WIDTH + x;
+            char block = map.grid[index];
+
+            Rect rect = {
+                .x      = (float) x * BLOCK_SIZE,
+                .y      = (float) y * BLOCK_SIZE,
+                .width  = (float) BLOCK_SIZE,
+                .height = (float) BLOCK_SIZE
+            };
+
+            Color color;
+            switch (block) {
+                case (char) Block.BLOCK_WALL.ordinal     : color = GRAY; break;
+                case (char) Block.BLOCK_BREAKABLE.ordinal: color = YELLOW; break;
+                case (char) Block.BLOCK_KEY.ordinal      : color = GOLD; break;
+                case (char) Block.BLOCK_EMPTY.ordinal    : color = BLANK; break;
+            }
+
+            draw_rect(rect, color);
+        }
+    }
+}
+
+
+fn void Game.draw(Game* game) {
+    game.map.draw();
+}
+
 fn int main() {
+    init_window(WINDOW_WIDTH, WINDOW_HEIGHT, "Bomberman");
+    set_target_fps(60);
+
     Game game;
     game.init();
 
-    init_window(WINDOW_WIDTH, WINDOW_HEIGHT, "Hello world");
-    set_target_fps(60);
-
-    while (!window_should_not_close()) {
+    while (!window_should_close()) {
         begin_drawing();
-
+        clear_background(SKYBLUE);
+        game.draw();
+        end_drawing();
     }
 
     return 0;
